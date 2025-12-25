@@ -47,9 +47,10 @@
    - Set up database migrations (Alembic) - optional for simple projects
 
 5. **Data Access Layer**
-   - Create repository/service layer for querying Uber data
-   - Implement common query functions (filtering, aggregations, stats)
-   - Add data validation and error handling
+   - Create SQL service for safe execution of LLM-generated queries
+   - Implement SQL validation and security checks
+   - Add schema information retrieval for LLM context
+   - Add error handling for query execution
 
 ### Phase 3: OpenAI Integration & Query Processing
 6. **OpenAI Integration**
@@ -176,7 +177,7 @@ aichatbot-service/
 │   │   └── migrations/    # Alembic migrations
 │   ├── services/
 │   │   ├── __init__.py
-│   │   ├── data_service.py    # Uber data queries
+│   │   ├── sql_service.py      # Safe SQL query execution
 │   │   ├── openai_service.py  # OpenAI integration
 │   │   └── chat_service.py    # Main chat logic
 │   ├── api/
