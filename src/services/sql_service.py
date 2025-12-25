@@ -77,7 +77,9 @@ class SQLService:
     
     def validate_sql(self, sql: str) -> bool:
         """Validate SQL query for safety."""
-        sql_upper = sql.upper().strip()
+        # Strip trailing semicolons (they're optional in SQL)
+        sql_clean = sql.rstrip(';').strip()
+        sql_upper = sql_clean.upper()
         
         # Check for forbidden keywords
         for forbidden in self.FORBIDDEN_KEYWORDS:
@@ -89,7 +91,12 @@ class SQLService:
             raise SQLServiceError("Only SELECT queries are allowed")
         
         # Check for multiple statements (prevent SQL injection)
-        if ';' in sql or sql.count('SELECT') > 1:
+        # Count SELECT statements in cleaned SQL (without trailing semicolons)
+        if sql_clean.count('SELECT') > 1:
+            raise SQLServiceError("Multiple statements not allowed")
+        
+        # Check for semicolons in the middle (not just at the end)
+        if ';' in sql_clean:
             raise SQLServiceError("Multiple statements not allowed")
         
         # Basic syntax check - should contain FROM

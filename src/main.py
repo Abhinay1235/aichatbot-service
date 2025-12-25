@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from src.config import settings
 from src.database.session import engine, Base
+from src.api.routes import chat
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -24,6 +25,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include routers
+app.include_router(chat.router, prefix="/api")
 
 
 @app.get("/")
