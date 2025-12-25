@@ -38,6 +38,7 @@ async def chat(
         # Process the message
         result = chat_service.process_message(
             user_message=request.message,
+            session_id=request.session_id,
             conversation_history=conversation_history
         )
         

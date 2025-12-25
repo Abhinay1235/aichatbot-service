@@ -6,6 +6,7 @@ import logging
 
 from src.services.openai_service import OpenAIService
 from src.services.sql_service import SQLService, SQLServiceError
+from src.services.session_service import SessionService
 
 logger = logging.getLogger(__name__)
 
@@ -18,10 +19,12 @@ class ChatService:
         self.db = db
         self.openai_service = OpenAIService()
         self.sql_service = SQLService(db)
+        self.session_service = SessionService(db)
     
     def process_message(
         self,
         user_message: str,
+        session_id: Optional[str] = None,
         conversation_history: Optional[List[Dict[str, str]]] = None
     ) -> Dict[str, Any]:
         """
@@ -29,17 +32,30 @@ class ChatService:
         
         Args:
             user_message: User's question/message
-            conversation_history: Previous conversation messages
+            session_id: Optional session ID for conversation context
+            conversation_history: Optional explicit conversation history (overrides session)
         
         Returns:
             Dictionary with response and metadata
         """
         try:
+            # Get or create session
+            if session_id:
+                if not self.session_service.session_exists(session_id):
+                    # Create session with the provided ID if it doesn't exist
+                    self.session_service.create_session(session_id=session_id)
+                # Get conversation history from session if not explicitly provided
+                if conversation_history is None:
+                    conversation_history = self.session_service.get_recent_conversation_history(session_id)
+            else:
+                # Create new session if none provided
+                session_id = self.session_service.create_session()
+            
             # Step 1: Get schema information for context
             schema_info = self.sql_service.get_schema_info()
             
             # Step 2: Generate SQL query from user question
-            logger.info(f"Generating SQL for question: {user_message}")
+            logger.info(f"Generating SQL for question: {user_message} (session: {session_id})")
             sql_query = self.openai_service.generate_sql_query(
                 user_question=user_message,
                 schema_info=schema_info,
@@ -58,9 +74,15 @@ class ChatService:
                 conversation_history=conversation_history
             )
             
+            # Step 5: Store messages in session
+            if session_id:
+                self.session_service.add_message(session_id, 'user', user_message)
+                self.session_service.add_message(session_id, 'assistant', response_text)
+            
             return {
                 'success': True,
                 'response': response_text,
+                'session_id': session_id,
                 'sql_query': sql_query,
                 'query_results': {
                     'row_count': query_results['row_count'],
@@ -81,9 +103,15 @@ class ChatService:
                     },
                     conversation_history=conversation_history
                 )
+                # Store error messages in session too
+                if session_id:
+                    self.session_service.add_message(session_id, 'user', user_message)
+                    self.session_service.add_message(session_id, 'assistant', error_response)
+                
                 return {
                     'success': False,
                     'response': error_response,
+                    'session_id': session_id,
                     'error': str(e),
                     'sql_query': None
                 }

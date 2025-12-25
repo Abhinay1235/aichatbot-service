@@ -24,6 +24,7 @@ class ChatResponse(BaseModel):
     """Response model for chat endpoint."""
     success: bool = Field(..., description="Whether the request was successful")
     response: str = Field(..., description="Chatbot's response")
+    session_id: Optional[str] = Field(None, description="Session ID for conversation context")
     sql_query: Optional[str] = Field(None, description="Generated SQL query (for debugging)")
     query_results: Optional[Dict[str, Any]] = Field(
         None,
