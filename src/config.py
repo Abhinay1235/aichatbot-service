@@ -2,6 +2,7 @@
 
 from pydantic_settings import BaseSettings
 from typing import Optional
+import os
 
 
 class Settings(BaseSettings):
@@ -27,8 +28,38 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = False
+    
+    @classmethod
+    def get_openai_key(cls) -> str:
+        """Get OpenAI API key from environment or SSM Parameter Store."""
+        # First try environment variable (set by systemd from SSM)
+        key = os.getenv("OPENAI_API_KEY")
+        if key and key.strip():
+            return key.strip()
+        
+        # Fallback to .env file for local development
+        try:
+            temp_settings = cls()
+            if temp_settings.openai_api_key:
+                return temp_settings.openai_api_key
+        except Exception:
+            pass
+        
+        raise ValueError("OPENAI_API_KEY not found in environment or .env file")
 
 
 # Global settings instance
-settings = Settings()
+# This will work with environment variables set by systemd (production)
+# or .env file (local development)
+try:
+    # Try to get from environment first (production)
+    openai_key = Settings.get_openai_key()
+    settings = Settings(openai_api_key=openai_key)
+except (ValueError, Exception):
+    # Fallback for local development - will use .env file
+    try:
+        settings = Settings()
+    except Exception as e:
+        # If both fail, raise the original error
+        raise ValueError(f"Failed to load configuration: {e}")
 

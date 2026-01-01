@@ -1,0 +1,148 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AI Chatbot Service - EC2 Infrastructure for PROD'
+
+Parameters:
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    Description: EC2 instance type
+    AllowedValues:
+      - t3.micro
+      - t3.small
+  
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Name of an existing EC2 KeyPair to enable SSH access
+  
+  Environment:
+    Type: String
+    Default: PROD
+    Description: Environment name
+
+Resources:
+  # IAM Role for EC2 instance
+  EC2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Environment}-Chatbot-EC2-Role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+      Policies:
+        - PolicyName: SSMReadAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                  - ssm:GetParameterHistory
+                  - ssm:GetParametersByPath
+                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/chatbot/prod/*'
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub '${Environment}-Chatbot-EC2-Profile'
+      Roles:
+        - !Ref EC2InstanceRole
+
+  # Security Group
+  ChatbotSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub '${Environment}-Chatbot-SG'
+      GroupDescription: Security group for AI Chatbot Service
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+          Description: SSH access
+        - IpProtocol: tcp
+          FromPort: 8000
+          ToPort: 8000
+          CidrIp: 0.0.0.0/0
+          Description: FastAPI application port
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: HTTP access
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS access
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+          Description: Allow all outbound traffic
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-Chatbot-SG'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # EC2 Instance
+  ChatbotEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0c55b159cbfafe1f0  # Amazon Linux 2023 (us-east-1) - Update for your region
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyPairName
+      IamInstanceProfile: !Ref EC2InstanceProfile
+      SecurityGroupIds:
+        - !Ref ChatbotSecurityGroup
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install -y python3.11 python3.11-pip git sqlite aws-cli
+          
+          # Create application directory
+          mkdir -p /opt/chatbot-service
+          chown ec2-user:ec2-user /opt/chatbot-service
+          
+          # Log user data execution
+          echo "User data script completed at $(date)" >> /var/log/user-data.log
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-Chatbot-EC2'
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: ChatbotService
+
+Outputs:
+  InstanceId:
+    Description: EC2 Instance ID
+    Value: !Ref ChatbotEC2Instance
+    Export:
+      Name: !Sub '${Environment}-Chatbot-InstanceId'
+
+  PublicIP:
+    Description: Public IP address of the EC2 instance
+    Value: !GetAtt ChatbotEC2Instance.PublicIp
+    Export:
+      Name: !Sub '${Environment}-Chatbot-PublicIP'
+
+  PublicDNS:
+    Description: Public DNS name of the EC2 instance
+    Value: !GetAtt ChatbotEC2Instance.PublicDnsName
+    Export:
+      Name: !Sub '${Environment}-Chatbot-PublicDNS'
+
+  SecurityGroupId:
+    Description: Security Group ID
+    Value: !Ref ChatbotSecurityGroup
+    Export:
+      Name: !Sub '${Environment}-Chatbot-SecurityGroupId'
+
