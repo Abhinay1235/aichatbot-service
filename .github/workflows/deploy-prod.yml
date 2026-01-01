@@ -27,6 +27,35 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Get Latest Amazon Linux 2023 AMI ID
+        id: get-ami
+        run: |
+          AMI_ID=$(aws ec2 describe-images \
+            --owners amazon \
+            --filters "Name=name,Values=al2023-ami-*-x86_64" "Name=state,Values=available" \
+            --query 'Images | sort_by(@, &CreationDate) | [-1].ImageId' \
+            --region ${{ env.AWS_REGION }} \
+            --output text)
+          
+          if [ -z "$AMI_ID" ] || [ "$AMI_ID" == "None" ]; then
+            echo "❌ Error: Could not find AMI. Trying alternative filter..."
+            # Try alternative filter for Amazon Linux 2023
+            AMI_ID=$(aws ec2 describe-images \
+              --owners amazon \
+              --filters "Name=name,Values=amzn2-ami-hvm-*-x86_64-gp2" "Name=state,Values=available" \
+              --query 'Images | sort_by(@, &CreationDate) | [-1].ImageId' \
+              --region ${{ env.AWS_REGION }} \
+              --output text)
+          fi
+          
+          if [ -z "$AMI_ID" ] || [ "$AMI_ID" == "None" ]; then
+            echo "❌ Error: Could not find any AMI"
+            exit 1
+          fi
+          
+          echo "AMI_ID=$AMI_ID" >> $GITHUB_OUTPUT
+          echo "✅ Found AMI: $AMI_ID"
+
       - name: Create or Update CloudFormation Stack
         id: cloudformation
         run: |
@@ -39,6 +68,7 @@ jobs:
               --parameters ParameterKey=InstanceType,ParameterValue=t3.micro \
                            ParameterKey=KeyPairName,ParameterValue=${{ secrets.AWS_KEY_PAIR_NAME }} \
                            ParameterKey=Environment,ParameterValue=${{ env.ENVIRONMENT }} \
+                           ParameterKey=AmiId,ParameterValue=${{ steps.get-ami.outputs.AMI_ID }} \
               --capabilities CAPABILITY_NAMED_IAM \
               --region ${{ env.AWS_REGION }} || echo "No updates to be performed"
             
@@ -54,6 +84,7 @@ jobs:
               --parameters ParameterKey=InstanceType,ParameterValue=t3.micro \
                            ParameterKey=KeyPairName,ParameterValue=${{ secrets.AWS_KEY_PAIR_NAME }} \
                            ParameterKey=Environment,ParameterValue=${{ env.ENVIRONMENT }} \
+                           ParameterKey=AmiId,ParameterValue=${{ steps.get-ami.outputs.AMI_ID }} \
               --capabilities CAPABILITY_NAMED_IAM \
               --region ${{ env.AWS_REGION }}
             
