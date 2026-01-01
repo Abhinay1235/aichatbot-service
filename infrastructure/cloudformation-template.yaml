@@ -55,6 +55,7 @@ Resources:
         - !Ref EC2InstanceRole
 
   # Security Group
+  # Note: SecurityGroupEgress not specified - AWS allows all outbound traffic by default
   ChatbotSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -81,10 +82,6 @@ Resources:
           ToPort: 443
           CidrIp: 0.0.0.0/0
           Description: HTTPS access
-      SecurityGroupEgress:
-        - IpProtocol: -1
-          CidrIp: 0.0.0.0/0
-          Description: Allow all outbound traffic
       Tags:
         - Key: Name
           Value: !Sub '${Environment}-Chatbot-SG'
