@@ -153,19 +153,35 @@ jobs:
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
             ec2-user@$INSTANCE_IP "chmod +x /tmp/deploy.sh" || exit 1
           
-          # Copy application files (excluding venv, __pycache__, etc.)
-          rsync -avz -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \
-            --exclude 'venv/' \
-            --exclude '__pycache__/' \
-            --exclude '*.pyc' \
-            --exclude '.git/' \
-            --exclude 'database/*.db' \
-            --exclude '.env' \
-            --exclude '*.log' \
-            --exclude '.DS_Store' \
-            ./ ec2-user@$INSTANCE_IP:/opt/chatbot-service/ || exit 1
+          # Create tarball excluding unnecessary files
+          echo "Creating deployment tarball..."
+          tar --exclude='venv' \
+              --exclude='__pycache__' \
+              --exclude='*.pyc' \
+              --exclude='.git' \
+              --exclude='database/*.db' \
+              --exclude='.env' \
+              --exclude='*.log' \
+              --exclude='.DS_Store' \
+              --exclude='node_modules' \
+              --exclude='.github' \
+              -czf /tmp/chatbot-deploy.tar.gz .
+          
+          # Transfer tarball to EC2
+          echo "Transferring files to EC2..."
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            /tmp/chatbot-deploy.tar.gz ec2-user@$INSTANCE_IP:/tmp/ || exit 1
+          
+          # Extract tarball on EC2 and clean up
+          echo "Extracting files on EC2..."
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            ec2-user@$INSTANCE_IP "mkdir -p /opt/chatbot-service && cd /opt/chatbot-service && tar -xzf /tmp/chatbot-deploy.tar.gz && rm /tmp/chatbot-deploy.tar.gz" || exit 1
+          
+          # Clean up local tarball
+          rm /tmp/chatbot-deploy.tar.gz
           
           # Execute deployment script
+          echo "Running deployment script..."
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
             ec2-user@$INSTANCE_IP "bash /tmp/deploy.sh ${{ env.ENVIRONMENT }} ${{ env.AWS_REGION }}" || exit 1
 
