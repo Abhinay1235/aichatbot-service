@@ -1,16 +1,22 @@
 """Script to load CSV data into the database."""
 
-import pandas as pd
 import sys
 import os
-from datetime import datetime
-from typing import Optional
 
-# Add parent directory to path (use absolute path to avoid issues)
-script_dir = os.path.dirname(os.path.abspath(__file__))
+# CRITICAL: Add parent directory to path BEFORE any other imports
+# Use absolute path to avoid issues with relative path resolution
+script_file = os.path.abspath(__file__)
+script_dir = os.path.dirname(script_file)
 parent_dir = os.path.dirname(script_dir)
+
+# Ensure parent directory is first in path
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
+
+# Now we can import everything else
+import pandas as pd
+from datetime import datetime
+from typing import Optional
 
 from src.database.session import SessionLocal, engine
 from src.database.models import Base, UberTrip
