@@ -18,9 +18,16 @@ app = FastAPI(
 )
 
 # CORS middleware
+# Allow specific origins for production and local development
+allowed_origins = [
+    "https://main.d2hgspiyjkz5p5.amplifyapp.com",  # Production Amplify URL
+    "http://localhost:3000",  # Local development
+    "http://localhost:5173",  # Vite dev server
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
