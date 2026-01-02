@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
     
     # OpenAI Configuration
-    openai_api_key: str
+    openai_api_key: Optional[str] = None
     openai_model: str = "gpt-3.5-turbo"
     
     # Database Configuration
@@ -51,15 +51,17 @@ class Settings(BaseSettings):
 # Global settings instance
 # This will work with environment variables set by systemd (production)
 # or .env file (local development)
+# OpenAI API key is optional during initialization (only needed when using OpenAI service)
 try:
     # Try to get from environment first (production)
-    openai_key = Settings.get_openai_key()
-    settings = Settings(openai_api_key=openai_key)
-except (ValueError, Exception):
-    # Fallback for local development - will use .env file
     try:
+        openai_key = Settings.get_openai_key()
+        settings = Settings(openai_api_key=openai_key)
+    except ValueError:
+        # OpenAI key not available - that's OK, we'll load it when needed
         settings = Settings()
-    except Exception as e:
-        # If both fail, raise the original error
-        raise ValueError(f"Failed to load configuration: {e}")
+except Exception as e:
+    # Fallback for local development - will use .env file
+    # OpenAI key might not be available during data loading, which is OK
+    settings = Settings()
 
