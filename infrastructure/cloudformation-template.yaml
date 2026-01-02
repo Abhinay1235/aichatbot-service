@@ -76,6 +76,16 @@ Resources:
           ToPort: 8000
           CidrIp: 0.0.0.0/0
           Description: FastAPI application port
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: HTTP access
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS access
       Tags:
         - Key: Name
           Value: !Sub '${Environment}-Chatbot-SG'
