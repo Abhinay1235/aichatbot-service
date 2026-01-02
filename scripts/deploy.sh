@@ -35,11 +35,33 @@ mkdir -p database
 if [ ! -f "database/chatbot.db" ]; then
     echo "📊 Database not found, loading data..."
     if [ -f "data/uber_data.csv" ]; then
-        # Ensure we're in the right directory and PYTHONPATH is set
+        # Ensure we're in the right directory
         cd $APP_DIR
+        
+        # Verify the script file exists
+        if [ ! -f "scripts/load_data.py" ]; then
+            echo "❌ Error: scripts/load_data.py not found!"
+            exit 1
+        fi
+        
+        # Use venv's python and explicitly set PYTHONPATH
+        # The load_data.py script adds parent dir to sys.path, but we'll also ensure PYTHONPATH is set
         export PYTHONPATH="$APP_DIR:$PYTHONPATH"
-        # Use venv's python explicitly to ensure correct environment
+        
+        # Run the script with absolute path and ensure it can find modules
+        # First, test if we can import src
+        $APP_DIR/venv/bin/python -c "import sys; sys.path.insert(0, '$APP_DIR'); import src.database.session; print('✅ Module import test successful')" || {
+            echo "❌ Error: Cannot import src.database.session"
+            echo "Python path:"
+            $APP_DIR/venv/bin/python -c "import sys; print('\n'.join(sys.path))"
+            echo "Files in $APP_DIR:"
+            ls -la $APP_DIR/ | head -20
+            exit 1
+        }
+        
+        # Now run the actual script
         $APP_DIR/venv/bin/python scripts/load_data.py data/uber_data.csv
+        
         echo "✅ Database loaded successfully"
     else
         echo "⚠️  Warning: data/uber_data.csv not found. Creating empty database."
