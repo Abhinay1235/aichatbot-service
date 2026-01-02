@@ -45,21 +45,9 @@ if [ ! -f "database/chatbot.db" ]; then
         fi
         
         # Use venv's python and explicitly set PYTHONPATH
-        # The load_data.py script adds parent dir to sys.path, but we'll also ensure PYTHONPATH is set
+        # The load_data.py script now uses absolute paths for sys.path modification
+        cd $APP_DIR
         export PYTHONPATH="$APP_DIR:$PYTHONPATH"
-        
-        # Run the script with absolute path and ensure it can find modules
-        # First, test if we can import src
-        $APP_DIR/venv/bin/python -c "import sys; sys.path.insert(0, '$APP_DIR'); import src.database.session; print('✅ Module import test successful')" || {
-            echo "❌ Error: Cannot import src.database.session"
-            echo "Python path:"
-            $APP_DIR/venv/bin/python -c "import sys; print('\n'.join(sys.path))"
-            echo "Files in $APP_DIR:"
-            ls -la $APP_DIR/ | head -20
-            exit 1
-        }
-        
-        # Now run the actual script
         $APP_DIR/venv/bin/python scripts/load_data.py data/uber_data.csv
         
         echo "✅ Database loaded successfully"

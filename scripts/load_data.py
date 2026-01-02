@@ -6,8 +6,11 @@ import os
 from datetime import datetime
 from typing import Optional
 
-# Add parent directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+# Add parent directory to path (use absolute path to avoid issues)
+script_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(script_dir)
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
 
 from src.database.session import SessionLocal, engine
 from src.database.models import Base, UberTrip
