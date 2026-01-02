@@ -61,8 +61,8 @@ jobs:
         run: |
           # Check if stack exists
           if aws cloudformation describe-stacks --stack-name ${{ env.STACK_NAME }} --region ${{ env.AWS_REGION }} > /dev/null 2>&1; then
-            echo "Stack exists, updating..."
-            aws cloudformation update-stack \
+            echo "Stack exists, checking for updates..."
+            UPDATE_OUTPUT=$(aws cloudformation update-stack \
               --stack-name ${{ env.STACK_NAME }} \
               --template-body file://infrastructure/cloudformation-template.yaml \
               --parameters ParameterKey=InstanceType,ParameterValue=t3.micro \
@@ -70,12 +70,21 @@ jobs:
                            ParameterKey=Environment,ParameterValue=${{ env.ENVIRONMENT }} \
                            ParameterKey=AmiId,ParameterValue=${{ steps.get-ami.outputs.AMI_ID }} \
               --capabilities CAPABILITY_NAMED_IAM \
-              --region ${{ env.AWS_REGION }} || echo "No updates to be performed"
+              --region ${{ env.AWS_REGION }} 2>&1) || UPDATE_EXIT_CODE=$?
             
-            echo "Waiting for stack update to complete..."
-            aws cloudformation wait stack-update-complete \
-              --stack-name ${{ env.STACK_NAME }} \
-              --region ${{ env.AWS_REGION }} || true
+            if [ "${UPDATE_EXIT_CODE:-0}" -eq 0 ]; then
+              echo "Stack update initiated, waiting for completion..."
+              aws cloudformation wait stack-update-complete \
+                --stack-name ${{ env.STACK_NAME }} \
+                --region ${{ env.AWS_REGION }}
+              echo "✅ Stack updated successfully"
+            elif echo "$UPDATE_OUTPUT" | grep -q "No updates are to be performed"; then
+              echo "ℹ️  No stack updates needed (stack is already up to date)"
+            else
+              echo "❌ Stack update failed:"
+              echo "$UPDATE_OUTPUT"
+              exit 1
+            fi
           else
             echo "Stack does not exist, creating..."
             aws cloudformation create-stack \
@@ -92,6 +101,7 @@ jobs:
             aws cloudformation wait stack-create-complete \
               --stack-name ${{ env.STACK_NAME }} \
               --region ${{ env.AWS_REGION }}
+            echo "✅ Stack created successfully"
           fi
 
       - name: Get EC2 Instance IP
