@@ -9,17 +9,33 @@ script_file = os.path.abspath(__file__)
 script_dir = os.path.dirname(script_file)
 parent_dir = os.path.dirname(script_dir)
 
+# Debug output (can be removed later)
+print(f"DEBUG: Script file: {script_file}")
+print(f"DEBUG: Script dir: {script_dir}")
+print(f"DEBUG: Parent dir: {parent_dir}")
+print(f"DEBUG: Checking if src exists: {os.path.exists(os.path.join(parent_dir, 'src'))}")
+print(f"DEBUG: Checking if src/database exists: {os.path.exists(os.path.join(parent_dir, 'src', 'database'))}")
+
 # Ensure parent directory is first in path
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
+
+print(f"DEBUG: sys.path[0]: {sys.path[0]}")
+print(f"DEBUG: Files in parent_dir: {os.listdir(parent_dir) if os.path.exists(parent_dir) else 'NOT FOUND'}")
 
 # Now we can import everything else
 import pandas as pd
 from datetime import datetime
 from typing import Optional
 
-from src.database.session import SessionLocal, engine
-from src.database.models import Base, UberTrip
+try:
+    from src.database.session import SessionLocal, engine
+    from src.database.models import Base, UberTrip
+except ImportError as e:
+    print(f"ERROR: Failed to import src.database.session: {e}")
+    print(f"ERROR: sys.path = {sys.path[:5]}")
+    print(f"ERROR: Current working directory: {os.getcwd()}")
+    raise
 
 
 def parse_date_time(date_str: str, time_str: str) -> Optional[datetime]:

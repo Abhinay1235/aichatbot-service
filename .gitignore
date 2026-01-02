@@ -63,12 +63,15 @@ temp/
 Thumbs.db
 .DS_Store
 
-# Database
+# Database files (SQLite database files)
 *.db
 *.sqlite
 *.sqlite3
-database/
-!database/.gitkeep
+# Only ignore root-level database directory (contains actual DB files)
+/database/
+!/database/.gitkeep
+# Allow src/database/ (Python code for database models)
+!/src/database/
 
 # Secrets and credentials
 secrets/
