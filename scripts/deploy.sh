@@ -17,8 +17,16 @@ cd $APP_DIR
 echo "📦 Installing Python dependencies..."
 python3.11 -m venv venv || true
 source venv/bin/activate
+
+# Set PYTHONPATH before installing to ensure it's available
+export PYTHONPATH="$APP_DIR:$PYTHONPATH"
+
 pip install --upgrade pip --quiet
 pip install -r requirements.txt --quiet
+
+# Verify Python and path
+echo "Python location: $(which python)"
+echo "PYTHONPATH: $PYTHONPATH"
 
 # Create database directory if it doesn't exist
 mkdir -p database
@@ -27,12 +35,18 @@ mkdir -p database
 if [ ! -f "database/chatbot.db" ]; then
     echo "📊 Database not found, loading data..."
     if [ -f "data/uber_data.csv" ]; then
-        python scripts/load_data.py data/uber_data.csv
+        # Ensure we're in the right directory and PYTHONPATH is set
+        cd $APP_DIR
+        export PYTHONPATH="$APP_DIR:$PYTHONPATH"
+        # Use venv's python explicitly to ensure correct environment
+        $APP_DIR/venv/bin/python scripts/load_data.py data/uber_data.csv
         echo "✅ Database loaded successfully"
     else
         echo "⚠️  Warning: data/uber_data.csv not found. Creating empty database."
-        # Create tables only
-        python -c "from src.database.session import engine, Base; Base.metadata.create_all(bind=engine)"
+        # Create tables only - ensure PYTHONPATH is set
+        cd $APP_DIR
+        export PYTHONPATH="$APP_DIR:$PYTHONPATH"
+        $APP_DIR/venv/bin/python -c "import sys; sys.path.insert(0, '$APP_DIR'); from src.database.session import engine, Base; Base.metadata.create_all(bind=engine)"
         echo "✅ Empty database created"
     fi
 else
@@ -51,6 +65,7 @@ Type=simple
 User=ec2-user
 WorkingDirectory=$APP_DIR
 Environment="PATH=$APP_DIR/venv/bin"
+Environment="PYTHONPATH=$APP_DIR"
 Environment="ENVIRONMENT=$ENVIRONMENT"
 Environment="AWS_REGION=$AWS_REGION"
 EnvironmentFile=-$APP_DIR/.env
