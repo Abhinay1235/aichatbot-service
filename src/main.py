@@ -19,8 +19,12 @@ app = FastAPI(
 
 # CORS middleware
 # Allow specific origins for production and local development
+
+# src/main.py
 allowed_origins = [
     "https://main.d2hgspiyjkz5p5.amplifyapp.com",  # Production Amplify URL
+    "https://abhinaykumar.com",  # Your UI domain
+    "https://www.abhinaykumar.com",  # www variant if needed
     "http://localhost:3000",  # Local development
     "http://localhost:5173",  # Vite dev server
 ]
