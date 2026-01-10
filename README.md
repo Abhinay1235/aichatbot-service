@@ -1,18 +1,18 @@
 # AI Chatbot Service
 
-A cost-efficient AI-powered chatbot backend service for analyzing Uber trip data. Built with FastAPI, SQLite, and OpenAI GPT-3.5-turbo.
+AI-powered chatbot backend service for analyzing Uber trip data. Built with FastAPI, SQLite, and OpenAI GPT-3.5-turbo.
 
 ## Overview
 
 This service provides:
-- **Natural language queries** to analyze Uber trip data
+- **Natural language queries** to analyze car rides data for a particular period
 - **Conversation context persistence** - remembers previous questions in a session
 - **Cost-efficient architecture** - SQLite database, GPT-3.5-turbo model
 - **RESTful API** for chatbot interactions
 
 ## Features
 
-- 📊 Analyze Uber trip data through natural language questions
+- 📊 Analyze Car rides data through natural language questions
 - 💬 Maintain conversation context across multiple questions
 - 💰 Cost-optimized (SQLite + GPT-3.5-turbo)
 - 🚀 Fast API built with FastAPI
@@ -24,7 +24,7 @@ This service provides:
 
 - Python 3.9 or higher
 - OpenAI API key
-- Uber trip data in CSV format
+- Car Rides data in CSV format
 
 ### Installation
 
@@ -116,7 +116,7 @@ Estimated monthly cost: ~$5-20 for a portfolio project.
 
 ## Data Source & Credits
 
-The Uber trip data used in this project is sourced from a public dataset on Kaggle:
+The Car Rides data used in this project is sourced from a public dataset on Kaggle:
 
 **Dataset**: [Ola and Uber Ride Booking and Cancellation Data](https://www.kaggle.com/datasets/hetmengar/ola-and-uber-ride-booking-and-cancellation-data)
 
