@@ -63,6 +63,29 @@ else
     echo "✅ Database already exists, skipping data load"
 fi
 
+# Create startup script that fetches API key from SSM
+echo "📝 Creating startup script..."
+sudo tee $APP_DIR/start.sh > /dev/null <<'EOFSCRIPT'
+#!/bin/bash
+APP_DIR="/opt/chatbot-service"
+ENVIRONMENT="${ENVIRONMENT:-PROD}"
+AWS_REGION="${AWS_REGION:-us-east-1}"
+
+# Fetch OpenAI API key from SSM Parameter Store
+export OPENAI_API_KEY=$(aws ssm get-parameter --name /chatbot/$ENVIRONMENT/OPENAI_API_KEY --with-decryption --region $AWS_REGION --query Parameter.Value --output text 2>/dev/null || echo "")
+
+if [ -z "$OPENAI_API_KEY" ]; then
+    echo "❌ Error: Failed to retrieve OPENAI_API_KEY from SSM Parameter Store"
+    exit 1
+fi
+
+# Start the application
+cd $APP_DIR
+exec $APP_DIR/venv/bin/uvicorn src.main:app --host 0.0.0.0 --port 8000
+EOFSCRIPT
+
+sudo chmod +x $APP_DIR/start.sh
+
 # Create systemd service file
 echo "⚙️  Setting up systemd service..."
 sudo tee /etc/systemd/system/$SERVICE_NAME.service > /dev/null <<EOF
@@ -79,9 +102,7 @@ Environment="PYTHONPATH=$APP_DIR"
 Environment="ENVIRONMENT=$ENVIRONMENT"
 Environment="AWS_REGION=$AWS_REGION"
 EnvironmentFile=-$APP_DIR/.env
-# Load OpenAI API key from SSM Parameter Store
-Environment="OPENAI_API_KEY=\$(aws ssm get-parameter --name /chatbot/$ENVIRONMENT/OPENAI_API_KEY --with-decryption --region $AWS_REGION --query Parameter.Value --output text 2>/dev/null || echo '')"
-ExecStart=$APP_DIR/venv/bin/uvicorn src.main:app --host 0.0.0.0 --port 8000
+ExecStart=$APP_DIR/start.sh
 Restart=always
 RestartSec=10
 StandardOutput=journal
