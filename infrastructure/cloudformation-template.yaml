@@ -49,7 +49,7 @@ Resources:
                   - ssm:GetParameters
                   - ssm:GetParameterHistory
                   - ssm:GetParametersByPath
-                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/chatbot/prod/*'
+                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/chatbot/${Environment}/*'
 
   EC2InstanceProfile:
     Type: AWS::IAM::InstanceProfile
