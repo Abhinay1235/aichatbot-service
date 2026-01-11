@@ -16,6 +16,10 @@ cd $APP_DIR
 # Install/update Python dependencies
 echo "📦 Installing Python dependencies..."
 python3.11 -m venv venv || true
+if [ ! -f "venv/bin/activate" ]; then
+    echo "❌ Error: Failed to create virtual environment"
+    exit 1
+fi
 source venv/bin/activate
 
 # Set PYTHONPATH before installing to ensure it's available
@@ -33,7 +37,10 @@ if [ ! -f "database/chatbot.db" ]; then
     
     # Always create the database structure first (required for service to start)
     export PYTHONPATH="$APP_DIR:$PYTHONPATH"
-    $APP_DIR/venv/bin/python -c "import sys; sys.path.insert(0, '$APP_DIR'); from src.database.session import engine, Base; Base.metadata.create_all(bind=engine)"
+    if ! $APP_DIR/venv/bin/python -c "import sys; sys.path.insert(0, '$APP_DIR'); from src.database.session import engine, Base; Base.metadata.create_all(bind=engine)"; then
+        echo "❌ Error: Failed to create database structure"
+        exit 1
+    fi
     echo "✅ Database structure created"
     
     # Try to load data if CSV exists (non-fatal - continue deployment even if it fails)
