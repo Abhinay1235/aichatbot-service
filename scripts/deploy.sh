@@ -79,6 +79,15 @@ APP_DIR="/opt/chatbot-service"
 ENVIRONMENT="${ENVIRONMENT:-PROD}"
 AWS_REGION="${AWS_REGION:-us-east-1}"
 
+# Set PATH to include common locations for AWS CLI
+export PATH="/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin:$PATH"
+
+# Verify AWS CLI is available
+if ! command -v aws &> /dev/null; then
+    echo "❌ Error: AWS CLI not found in PATH: $PATH"
+    exit 1
+fi
+
 # Fetch OpenAI API key from SSM Parameter Store
 SSM_OUTPUT=$(aws ssm get-parameter \
   --name "/chatbot/$ENVIRONMENT/OPENAI_API_KEY" \
@@ -96,6 +105,12 @@ if [ $SSM_EXIT_CODE -ne 0 ] || [ -z "$SSM_OUTPUT" ] || [[ "$SSM_OUTPUT" == *"err
 fi
 
 export OPENAI_API_KEY="$SSM_OUTPUT"
+
+# Verify uvicorn is available
+if [ ! -f "$APP_DIR/venv/bin/uvicorn" ]; then
+    echo "❌ Error: uvicorn not found at $APP_DIR/venv/bin/uvicorn"
+    exit 1
+fi
 
 # Start the application
 cd $APP_DIR
