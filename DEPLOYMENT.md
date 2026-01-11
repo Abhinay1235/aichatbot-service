@@ -132,6 +132,15 @@ The GitHub Actions workflow performs:
 
 ## Post-Deployment
 
+### Setup HTTPS with Nginx (Optional but Recommended)
+
+To enable HTTPS access via your custom domain, follow the [Nginx SSL Setup Guide](NGINX_SSL_SETUP.md).
+
+This will configure:
+- Nginx as reverse proxy
+- SSL certificate from Let's Encrypt
+- HTTPS access at `https://ai-chatbot-service.abhinaykumar.com`
+
 ### Get Instance Information
 
 1. From GitHub Actions summary (after deployment completes)
@@ -147,14 +156,18 @@ The GitHub Actions workflow performs:
 ### Test the Deployment
 
 ```bash
-# Health check
+# Health check (direct access)
 curl http://<INSTANCE_IP>:8000/health
 
-# Root endpoint
+# Root endpoint (direct access)
 curl http://<INSTANCE_IP>:8000/
 
-# API Documentation
+# API Documentation (direct access)
 open http://<INSTANCE_IP>:8000/docs
+
+# Production HTTPS access (after Nginx SSL setup)
+curl https://ai-chatbot-service.abhinaykumar.com/health
+curl https://ai-chatbot-service.abhinaykumar.com/docs
 ```
 
 ### Access EC2 Instance
@@ -190,8 +203,10 @@ sudo journalctl -u chatbot-service -b
 
 ### Application Health
 
-- Health endpoint: `http://<INSTANCE_IP>:8000/health`
-- API docs: `http://<INSTANCE_IP>:8000/docs`
+- Health endpoint (direct): `http://<INSTANCE_IP>:8000/health`
+- Health endpoint (HTTPS): `https://ai-chatbot-service.abhinaykumar.com/health`
+- API docs (direct): `http://<INSTANCE_IP>:8000/docs`
+- API docs (HTTPS): `https://ai-chatbot-service.abhinaykumar.com/docs`
 
 ### AWS CloudWatch
 
