@@ -27,22 +27,36 @@ pip install -r requirements.txt --quiet
 # Create database directory if it doesn't exist
 mkdir -p database
 
-# Check if database exists, if not, load data
+# Check if database exists, if not, create it and optionally load data
 if [ ! -f "database/chatbot.db" ]; then
-    echo "📊 Database not found, loading data..."
-    if [ -f "data/uber_data.csv" ]; then
-        if [ ! -f "scripts/load_data.py" ]; then
-            echo "❌ Error: scripts/load_data.py not found!"
-            exit 1
+    echo "📊 Database not found, creating database structure..."
+    
+    # Always create the database structure first (required for service to start)
+    export PYTHONPATH="$APP_DIR:$PYTHONPATH"
+    $APP_DIR/venv/bin/python -c "import sys; sys.path.insert(0, '$APP_DIR'); from src.database.session import engine, Base; Base.metadata.create_all(bind=engine)"
+    echo "✅ Database structure created"
+    
+    # Try to load data if CSV exists (non-fatal - continue deployment even if it fails)
+    if [ -f "data/uber_data.csv" ] && [ -f "scripts/load_data.py" ]; then
+        echo "Loading data from CSV (this may take a few minutes)..."
+        # Use timeout if available, otherwise run directly
+        if command -v timeout &> /dev/null; then
+            if timeout 600 $APP_DIR/venv/bin/python scripts/load_data.py data/uber_data.csv 2>&1; then
+                echo "✅ Database loaded successfully"
+            else
+                echo "⚠️  Warning: Data loading failed or timed out, but database structure is ready"
+                echo "Service will start with empty database. You can load data later if needed"
+            fi
+        else
+            if $APP_DIR/venv/bin/python scripts/load_data.py data/uber_data.csv 2>&1; then
+                echo "✅ Database loaded successfully"
+            else
+                echo "⚠️  Warning: Data loading failed, but database structure is ready"
+                echo "Service will start with empty database. You can load data later if needed"
+            fi
         fi
-        export PYTHONPATH="$APP_DIR:$PYTHONPATH"
-        $APP_DIR/venv/bin/python scripts/load_data.py data/uber_data.csv
-        echo "✅ Database loaded successfully"
-    else
-        echo "⚠️  Warning: data/uber_data.csv not found. Creating empty database."
-        export PYTHONPATH="$APP_DIR:$PYTHONPATH"
-        $APP_DIR/venv/bin/python -c "import sys; sys.path.insert(0, '$APP_DIR'); from src.database.session import engine, Base; Base.metadata.create_all(bind=engine)"
-        echo "✅ Empty database created"
+    elif [ ! -f "data/uber_data.csv" ]; then
+        echo "ℹ️  No data/uber_data.csv found, database is ready but empty"
     fi
 else
     echo "✅ Database already exists, skipping data load"
