@@ -87,3 +87,5 @@ models/
 *.ckpt
 checkpoints/
 
+# Local/Private project files
+PROJECT_PLAN.local.md
