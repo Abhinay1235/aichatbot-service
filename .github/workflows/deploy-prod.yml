@@ -155,14 +155,6 @@ jobs:
         env:
           INSTANCE_IP: ${{ steps.get-instance-ip.outputs.INSTANCE_IP }}
         run: |
-          # Copy deployment script
-          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-            scripts/deploy.sh ec2-user@$INSTANCE_IP:/tmp/ || exit 1
-          
-          # Make deploy script executable on remote
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-            ec2-user@$INSTANCE_IP "chmod +x /tmp/deploy.sh" || exit 1
-          
           # Create tarball excluding unnecessary files
           echo "Creating deployment tarball..."
           tar --exclude='venv' \
@@ -190,10 +182,10 @@ jobs:
           # Clean up local tarball
           rm /tmp/chatbot-deploy.tar.gz
           
-          # Execute deployment script
+          # Execute deployment script from the extracted location
           echo "Running deployment script..."
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-            ec2-user@$INSTANCE_IP "bash /tmp/deploy.sh ${{ env.ENVIRONMENT }} ${{ env.AWS_REGION }}" || exit 1
+            ec2-user@$INSTANCE_IP "bash /opt/chatbot-service/scripts/deploy.sh ${{ env.ENVIRONMENT }} ${{ env.AWS_REGION }}" || exit 1
 
       - name: Health Check
         run: |
