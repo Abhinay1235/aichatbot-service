@@ -29,6 +29,7 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Sub '${Environment}-Chatbot-EC2-Role'
+      Description: !Sub 'IAM Role for ${Environment} Chatbot EC2 instance with SSM access'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -49,7 +50,9 @@ Resources:
                   - ssm:GetParameters
                   - ssm:GetParameterHistory
                   - ssm:GetParametersByPath
-                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/chatbot/${Environment}/*'
+                Resource: 
+                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/chatbot/${Environment}/*'
+                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/chatbot/${Environment}/OPENAI_API_KEY'
 
   EC2InstanceProfile:
     Type: AWS::IAM::InstanceProfile
