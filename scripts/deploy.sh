@@ -67,19 +67,66 @@ fi
 echo "📝 Creating startup script..."
 sudo tee $APP_DIR/start.sh > /dev/null <<'EOFSCRIPT'
 #!/bin/bash
+set -e
+
 APP_DIR="/opt/chatbot-service"
 ENVIRONMENT="${ENVIRONMENT:-PROD}"
 AWS_REGION="${AWS_REGION:-us-east-1}"
 
-# Fetch OpenAI API key from SSM Parameter Store
-export OPENAI_API_KEY=$(aws ssm get-parameter --name /chatbot/$ENVIRONMENT/OPENAI_API_KEY --with-decryption --region $AWS_REGION --query Parameter.Value --output text 2>/dev/null || echo "")
+# Log startup
+echo "Starting chatbot service..."
+echo "Environment: $ENVIRONMENT"
+echo "AWS Region: $AWS_REGION"
+echo "App Directory: $APP_DIR"
 
-if [ -z "$OPENAI_API_KEY" ]; then
+# Ensure AWS CLI is in PATH and verify it's available
+export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
+if ! command -v aws &> /dev/null; then
+    echo "❌ Error: AWS CLI not found in PATH"
+    echo "PATH: $PATH"
+    which aws || echo "aws command not found"
+    exit 1
+fi
+echo "✅ AWS CLI found: $(which aws)"
+
+# Fetch OpenAI API key from SSM Parameter Store
+echo "Fetching OpenAI API key from SSM Parameter Store..."
+SSM_PARAM_NAME="/chatbot/$ENVIRONMENT/OPENAI_API_KEY"
+echo "SSM Parameter: $SSM_PARAM_NAME"
+
+# Try to get the parameter and capture any errors
+SSM_OUTPUT=$(aws ssm get-parameter \
+  --name "$SSM_PARAM_NAME" \
+  --with-decryption \
+  --region "$AWS_REGION" \
+  --query 'Parameter.Value' \
+  --output text 2>&1) || SSM_EXIT_CODE=$?
+
+if [ -n "$SSM_EXIT_CODE" ] || [ -z "$SSM_OUTPUT" ] || [ "$SSM_OUTPUT" == "None" ]; then
     echo "❌ Error: Failed to retrieve OPENAI_API_KEY from SSM Parameter Store"
+    echo "SSM command output: $SSM_OUTPUT"
+    echo "SSM exit code: ${SSM_EXIT_CODE:-0}"
+    echo "Checking IAM permissions..."
+    aws sts get-caller-identity || echo "Failed to get caller identity"
+    exit 1
+fi
+
+export OPENAI_API_KEY="$SSM_OUTPUT"
+if [ -z "$OPENAI_API_KEY" ]; then
+    echo "❌ Error: OPENAI_API_KEY is empty after retrieval"
+    exit 1
+fi
+
+echo "✅ Successfully retrieved API key from SSM"
+
+# Verify Python and uvicorn are available
+if [ ! -f "$APP_DIR/venv/bin/uvicorn" ]; then
+    echo "❌ Error: uvicorn not found at $APP_DIR/venv/bin/uvicorn"
     exit 1
 fi
 
 # Start the application
+echo "Starting uvicorn server..."
 cd $APP_DIR
 exec $APP_DIR/venv/bin/uvicorn src.main:app --host 0.0.0.0 --port 8000
 EOFSCRIPT
@@ -125,7 +172,14 @@ if sudo systemctl is-active --quiet $SERVICE_NAME; then
     sudo systemctl status $SERVICE_NAME --no-pager -l | head -20
 else
     echo "❌ Service failed to start"
+    echo "=== Service Status ==="
     sudo systemctl status $SERVICE_NAME --no-pager -l
+    echo ""
+    echo "=== Recent Service Logs ==="
+    sudo journalctl -u $SERVICE_NAME -n 50 --no-pager || true
+    echo ""
+    echo "=== Testing startup script manually ==="
+    sudo -u ec2-user bash -x $APP_DIR/start.sh || true
     exit 1
 fi
 
