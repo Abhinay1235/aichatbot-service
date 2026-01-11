@@ -100,14 +100,17 @@ SSM_OUTPUT=$(aws ssm get-parameter \
   --with-decryption \
   --region "$AWS_REGION" \
   --query 'Parameter.Value' \
-  --output text 2>&1) || SSM_EXIT_CODE=$?
+  --output text 2>&1)
+SSM_EXIT_CODE=$?
 
-if [ -n "$SSM_EXIT_CODE" ] || [ -z "$SSM_OUTPUT" ] || [ "$SSM_OUTPUT" == "None" ]; then
+if [ $SSM_EXIT_CODE -ne 0 ] || [ -z "$SSM_OUTPUT" ] || [ "$SSM_OUTPUT" == "None" ] || [[ "$SSM_OUTPUT" == *"error"* ]] || [[ "$SSM_OUTPUT" == *"Error"* ]]; then
     echo "❌ Error: Failed to retrieve OPENAI_API_KEY from SSM Parameter Store"
     echo "SSM command output: $SSM_OUTPUT"
-    echo "SSM exit code: ${SSM_EXIT_CODE:-0}"
+    echo "SSM exit code: $SSM_EXIT_CODE"
     echo "Checking IAM permissions..."
-    aws sts get-caller-identity || echo "Failed to get caller identity"
+    aws sts get-caller-identity 2>&1 || echo "Failed to get caller identity"
+    echo "Testing SSM list-parameters..."
+    aws ssm describe-parameters --region "$AWS_REGION" --query 'Parameters[?contains(Name, `chatbot`)].Name' --output text 2>&1 || echo "Failed to list parameters"
     exit 1
 fi
 
@@ -166,20 +169,35 @@ sudo systemctl enable $SERVICE_NAME
 sudo systemctl restart $SERVICE_NAME
 
 # Wait a bit and check status
-sleep 5
+echo "Waiting for service to start..."
+sleep 10
+
+# Check service status
 if sudo systemctl is-active --quiet $SERVICE_NAME; then
     echo "✅ Service started successfully"
     sudo systemctl status $SERVICE_NAME --no-pager -l | head -20
 else
     echo "❌ Service failed to start"
-    echo "=== Service Status ==="
-    sudo systemctl status $SERVICE_NAME --no-pager -l
     echo ""
-    echo "=== Recent Service Logs ==="
-    sudo journalctl -u $SERVICE_NAME -n 50 --no-pager || true
+    echo "=== Service Status ==="
+    sudo systemctl status $SERVICE_NAME --no-pager -l || true
+    echo ""
+    echo "=== Recent Service Logs (stdout) ==="
+    sudo journalctl -u $SERVICE_NAME -n 100 --no-pager --output=cat || true
     echo ""
     echo "=== Testing startup script manually ==="
-    sudo -u ec2-user bash -x $APP_DIR/start.sh || true
+    echo "Running: sudo -u ec2-user bash -x $APP_DIR/start.sh"
+    sudo -u ec2-user env ENVIRONMENT=$ENVIRONMENT AWS_REGION=$AWS_REGION bash -x $APP_DIR/start.sh 2>&1 || true
+    echo ""
+    echo "=== Checking startup script permissions ==="
+    ls -la $APP_DIR/start.sh || true
+    echo ""
+    echo "=== Checking if AWS CLI is available ==="
+    which aws || echo "AWS CLI not found in PATH"
+    aws --version || echo "AWS CLI version check failed"
+    echo ""
+    echo "=== Testing SSM access ==="
+    sudo -u ec2-user aws ssm get-parameter --name /chatbot/$ENVIRONMENT/OPENAI_API_KEY --with-decryption --region $AWS_REGION --query 'Parameter.Value' --output text 2>&1 | head -c 20 || echo "SSM access failed"
     exit 1
 fi
 
