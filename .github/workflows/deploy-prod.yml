@@ -119,7 +119,7 @@ jobs:
       - name: Store OpenAI API Key in SSM
         run: |
           aws ssm put-parameter \
-            --name "/chatbot/prod/OPENAI_API_KEY" \
+            --name "/chatbot/${{ env.ENVIRONMENT }}/OPENAI_API_KEY" \
             --type "SecureString" \
             --value "${{ secrets.OPENAI_API_KEY }}" \
             --overwrite \
