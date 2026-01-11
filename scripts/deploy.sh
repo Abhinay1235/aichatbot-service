@@ -80,17 +80,22 @@ ENVIRONMENT="${ENVIRONMENT:-PROD}"
 AWS_REGION="${AWS_REGION:-us-east-1}"
 
 # Fetch OpenAI API key from SSM Parameter Store
-export OPENAI_API_KEY=$(aws ssm get-parameter \
+SSM_OUTPUT=$(aws ssm get-parameter \
   --name "/chatbot/$ENVIRONMENT/OPENAI_API_KEY" \
   --with-decryption \
   --region "$AWS_REGION" \
   --query 'Parameter.Value' \
-  --output text 2>/dev/null || echo "")
+  --output text 2>&1)
+SSM_EXIT_CODE=$?
 
-if [ -z "$OPENAI_API_KEY" ]; then
+if [ $SSM_EXIT_CODE -ne 0 ] || [ -z "$SSM_OUTPUT" ] || [[ "$SSM_OUTPUT" == *"error"* ]] || [[ "$SSM_OUTPUT" == *"Error"* ]]; then
     echo "❌ Error: Failed to retrieve OPENAI_API_KEY from SSM Parameter Store"
+    echo "SSM command output: $SSM_OUTPUT"
+    echo "SSM exit code: $SSM_EXIT_CODE"
     exit 1
 fi
+
+export OPENAI_API_KEY="$SSM_OUTPUT"
 
 # Start the application
 cd $APP_DIR
@@ -138,7 +143,11 @@ if sudo systemctl is-active --quiet $SERVICE_NAME; then
     sudo systemctl status $SERVICE_NAME --no-pager -l | head -20
 else
     echo "❌ Service failed to start"
+    echo "=== Service Status ==="
     sudo systemctl status $SERVICE_NAME --no-pager -l
+    echo ""
+    echo "=== Recent Service Logs ==="
+    sudo journalctl -u $SERVICE_NAME -n 50 --no-pager || true
     exit 1
 fi
 
