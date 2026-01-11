@@ -107,13 +107,27 @@ jobs:
       - name: Get EC2 Instance IP
         id: get-instance-ip
         run: |
-          INSTANCE_IP=$(aws cloudformation describe-stacks \
+          # Get instance ID from CloudFormation
+          INSTANCE_ID=$(aws cloudformation describe-stacks \
             --stack-name ${{ env.STACK_NAME }} \
             --region ${{ env.AWS_REGION }} \
-            --query 'Stacks[0].Outputs[?OutputKey==`PublicIP`].OutputValue' \
+            --query 'Stacks[0].Outputs[?OutputKey==`InstanceId`].OutputValue' \
             --output text)
           
+          # Get current public IP directly from EC2 (accounts for Elastic IP changes)
+          INSTANCE_IP=$(aws ec2 describe-instances \
+            --instance-ids $INSTANCE_ID \
+            --region ${{ env.AWS_REGION }} \
+            --query 'Reservations[0].Instances[0].PublicIpAddress' \
+            --output text)
+          
+          if [ -z "$INSTANCE_IP" ] || [ "$INSTANCE_IP" == "None" ]; then
+            echo "❌ Error: Could not retrieve instance IP address"
+            exit 1
+          fi
+          
           echo "INSTANCE_IP=$INSTANCE_IP" >> $GITHUB_OUTPUT
+          echo "EC2 Instance ID: $INSTANCE_ID"
           echo "EC2 Instance IP: $INSTANCE_IP"
 
       - name: Store OpenAI API Key in SSM
